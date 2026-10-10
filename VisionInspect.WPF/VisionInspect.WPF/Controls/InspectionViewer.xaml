@@ -1,0 +1,63 @@
+<UserControl x:Class="VisionInspect.WPF.Controls.InspectionViewer"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="#0B1017"
+             ClipToBounds="True">
+
+    <Grid x:Name="Viewport"
+          Background="#0B1017"
+          SizeChanged="Viewport_SizeChanged"
+          MouseWheel="Viewport_MouseWheel"
+          MouseLeftButtonDown="Viewport_MouseLeftButtonDown"
+          MouseLeftButtonUp="Viewport_MouseLeftButtonUp"
+          MouseMove="Viewport_MouseMove"
+          LostMouseCapture="Viewport_LostMouseCapture">
+
+        <Canvas x:Name="ImageCanvas"
+                Width="1"
+                Height="1"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top">
+
+            <Canvas.RenderTransform>
+                <MatrixTransform x:Name="ViewTransform"/>
+            </Canvas.RenderTransform>
+
+            <Image x:Name="InspectionImage"
+                   Canvas.Left="0"
+                   Canvas.Top="0"
+                   Stretch="Fill"/>
+
+            <Canvas x:Name="DefectCanvas"
+                    Canvas.Left="0"
+                    Canvas.Top="0"
+                    IsHitTestVisible="False"/>
+
+        </Canvas>
+
+        <Border HorizontalAlignment="Left"
+                VerticalAlignment="Bottom"
+                Margin="12"
+                Padding="10,6"
+                Background="#CC192330"
+                CornerRadius="4">
+            <TextBlock x:Name="CoordinateText"
+                       Foreground="#DDE7F3"
+                       FontSize="12"
+                       Text="X: -  Y: -"/>
+        </Border>
+
+        <Border HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Margin="12"
+                Padding="10,6"
+                Background="#CC192330"
+                CornerRadius="4">
+            <TextBlock x:Name="ZoomText"
+                       Foreground="#DDE7F3"
+                       FontSize="12"
+                       Text="100%"/>
+        </Border>
+
+    </Grid>
+</UserControl>

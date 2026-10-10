@@ -1,0 +1,518 @@
+
+from contextlib import asynccontextmanager
+from pathlib import Path
+from threading import Lock
+import json
+import time
+import uuid
+
+import cv2
+import numpy as np
+import torch
+
+from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.staticfiles import StaticFiles
+
+from anomalib.engine import Engine
+from anomalib.models import Patchcore
+
+
+# ==========================================
+# 프로젝트 경로
+# ==========================================
+
+ROOT = Path(__file__).resolve().parent.parent
+
+MODEL_DIR = ROOT / "outputs" / "patchcore"
+
+CONFIG_PATH = (
+    ROOT
+    / "outputs"
+    / "batch_evaluation"
+    / "threshold_config.json"
+)
+
+OUTPUT_DIR = ROOT / "outputs" / "api"
+
+INPUT_DIR = OUTPUT_DIR / "inputs"
+RESULT_DIR = OUTPUT_DIR / "results"
+
+INPUT_DIR.mkdir(parents=True, exist_ok=True)
+RESULT_DIR.mkdir(parents=True, exist_ok=True)
+
+DEVICE = "gpu" if torch.cuda.is_available() else "cpu"
+
+MIN_DEFECT_AREA = 30
+
+model = None
+engine = None
+config = None
+checkpoint = None
+
+inference_lock = Lock()
+
+
+# ==========================================
+# 체크포인트
+# ==========================================
+
+def find_checkpoint():
+    checkpoints = list(
+        MODEL_DIR.rglob("*.ckpt")
+    )
+
+    if not checkpoints:
+        raise FileNotFoundError(
+            "PatchCore 체크포인트가 없습니다."
+        )
+
+    return max(
+        checkpoints,
+        key=lambda path: path.stat().st_mtime
+    )
+
+
+# ==========================================
+# 모델 초기화
+# ==========================================
+
+
+def initialize_model():
+    global model, engine, config, checkpoint
+
+    if not CONFIG_PATH.exists():
+        raise FileNotFoundError(CONFIG_PATH)
+
+    with open(
+        CONFIG_PATH,
+        "r",
+        encoding="utf-8"
+    ) as file:
+        config = json.load(file)
+
+    checkpoint = find_checkpoint()
+
+    print("\n========== VisionInspect AI ==========")
+    print("Device     :", DEVICE)
+    print("Checkpoint :", checkpoint)
+
+    start = time.perf_counter()
+
+    # 체크포인트를 서버 시작 시 한 번만 로딩
+    model = Patchcore.load_from_checkpoint(
+        str(checkpoint),
+        map_location="cpu"
+    )
+
+    model.eval()
+
+    # Anomalib의 Engine이 GPU 배치를 관리
+    engine = Engine(
+        accelerator=DEVICE,
+        devices=1,
+        default_root_dir=str(
+            OUTPUT_DIR / "engine"
+        ),
+        logger=False
+    )
+
+    elapsed = (
+        time.perf_counter() - start
+    ) * 1000
+
+    print(f"Model Load Time: {elapsed:.2f} ms")
+    print("Image Threshold:", config["imageThreshold"])
+    print("Pixel Threshold:", config["pixelThreshold"])
+    print("AI engine initialized.")
+    print("======================================\n")
+
+
+# ==========================================
+# FastAPI 생명주기
+# ==========================================
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    initialize_model()
+    yield
+
+
+app = FastAPI(
+    title="VisionInspect AI API",
+    description="PatchCore-based anomaly inspection API",
+    version="1.1.0",
+    lifespan=lifespan
+)
+
+app.mount(
+    "/results",
+    StaticFiles(directory=str(RESULT_DIR)),
+    name="results"
+)
+
+
+# ==========================================
+# Tensor -> NumPy
+# ==========================================
+
+def to_numpy(value):
+    if isinstance(value, torch.Tensor):
+        return value.detach().cpu().numpy()
+
+    return np.asarray(value)
+
+
+# ==========================================
+# Heatmap 생성
+# ==========================================
+
+def create_heatmap(anomaly_map):
+    normalized = cv2.normalize(
+        anomaly_map,
+        None,
+        0,
+        255,
+        cv2.NORM_MINMAX
+    )
+
+    normalized = normalized.astype(np.uint8)
+
+    return cv2.applyColorMap(
+        normalized,
+        cv2.COLORMAP_JET
+    )
+
+
+# ==========================================
+# 결함 Bounding Box
+# ==========================================
+
+def extract_defects(mask):
+    binary = (
+        mask.astype(np.uint8) * 255
+    )
+
+    contours, _ = cv2.findContours(
+        binary,
+        cv2.RETR_EXTERNAL,
+        cv2.CHAIN_APPROX_SIMPLE
+    )
+
+    defects = []
+
+    for contour in contours:
+        area = cv2.contourArea(contour)
+
+        if area < MIN_DEFECT_AREA:
+            continue
+
+        x, y, width, height = (
+            cv2.boundingRect(contour)
+        )
+
+        defects.append({
+            "x": int(x),
+            "y": int(y),
+            "width": int(width),
+            "height": int(height),
+            "area": float(area)
+        })
+
+    return defects
+
+
+# ==========================================
+# PatchCore 추론
+# ==========================================
+
+def run_inference(image_path):
+    global model, engine
+
+    original = cv2.imread(
+        str(image_path),
+        cv2.IMREAD_COLOR
+    )
+
+    if original is None:
+        raise RuntimeError(
+            "이미지를 읽을 수 없습니다."
+        )
+
+    height, width = original.shape[:2]
+
+    # 기존 predict_patchcore.py와 동일한
+    # Engine.predict() 경로 사용
+    with inference_lock:
+        predictions = engine.predict(
+            model=model,
+            data_path=str(image_path),
+            return_predictions=True
+        )
+
+    if not predictions:
+        raise RuntimeError(
+            "AI 추론 결과가 없습니다."
+        )
+
+    batch = predictions[0]
+
+    anomaly_map = to_numpy(
+        batch.anomaly_map
+    )
+
+    pred_score = to_numpy(
+        batch.pred_score
+    )
+
+    anomaly_map = np.squeeze(anomaly_map)
+
+    pred_score = float(
+        np.asarray(pred_score).reshape(-1)[0]
+    )
+
+    if anomaly_map.ndim != 2:
+        raise RuntimeError(
+            f"Unexpected anomaly map shape: "
+            f"{anomaly_map.shape}"
+        )
+
+    anomaly_map = cv2.resize(
+        anomaly_map.astype(np.float32),
+        (width, height),
+        interpolation=cv2.INTER_LINEAR
+    )
+
+    # ======================================
+    # 임계값
+    # ======================================
+
+    image_threshold = float(
+        config["imageThreshold"]
+    )
+
+    pixel_threshold = float(
+        config["pixelThreshold"]
+    )
+
+    result = (
+        "NG"
+        if pred_score >= image_threshold
+        else "OK"
+    )
+
+    mask = anomaly_map >= pixel_threshold
+
+    defects = extract_defects(mask)
+
+    # ======================================
+    # 시각화
+    # ======================================
+
+    heatmap = create_heatmap(
+        anomaly_map
+    )
+
+    overlay = cv2.addWeighted(
+        original,
+        0.6,
+        heatmap,
+        0.4,
+        0
+    )
+
+    result_image = original.copy()
+
+    for defect in defects:
+        x = defect["x"]
+        y = defect["y"]
+        w = defect["width"]
+        h = defect["height"]
+
+        cv2.rectangle(
+            result_image,
+            (x, y),
+            (x + w, y + h),
+            (0, 0, 255),
+            2
+        )
+
+    # ======================================
+    # 디버깅
+    # ======================================
+
+    print("\n=== FastAPI Anomaly Map ===")
+    print(f"Min  : {anomaly_map.min():.6f}")
+    print(f"Max  : {anomaly_map.max():.6f}")
+    print(f"Mean : {anomaly_map.mean():.6f}")
+    print(
+        f"P50  : "
+        f"{np.percentile(anomaly_map, 50):.6f}"
+    )
+    print(
+        f"P90  : "
+        f"{np.percentile(anomaly_map, 90):.6f}"
+    )
+    print(
+        f"P99  : "
+        f"{np.percentile(anomaly_map, 99):.6f}"
+    )
+    print(f"Score: {pred_score:.6f}")
+
+    return {
+        "result": result,
+        "anomalyScore": pred_score,
+        "imageThreshold": image_threshold,
+        "pixelThreshold": pixel_threshold,
+        "defectCount": len(defects),
+        "defects": defects,
+        "heatmap": heatmap,
+        "overlay": overlay,
+        "resultImage": result_image
+    }
+
+
+# ==========================================
+# 서버 상태
+# ==========================================
+
+@app.get("/api/health")
+def health():
+    return {
+        "status": "ok",
+        "device": DEVICE,
+        "modelLoaded": model is not None,
+        "engineLoaded": engine is not None
+    }
+
+
+# ==========================================
+# 이미지 검사 API
+# ==========================================
+
+@app.post("/api/inspect")
+async def inspect(
+    file: UploadFile = File(...)
+):
+    if model is None or engine is None:
+        raise HTTPException(
+            status_code=503,
+            detail="AI engine is not initialized."
+        )
+
+    contents = await file.read()
+
+    if not contents:
+        raise HTTPException(
+            status_code=400,
+            detail="Empty image file."
+        )
+
+    image = cv2.imdecode(
+        np.frombuffer(
+            contents,
+            dtype=np.uint8
+        ),
+        cv2.IMREAD_COLOR
+    )
+
+    if image is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid image."
+        )
+
+    inspection_id = uuid.uuid4().hex
+
+    input_path = (
+        INPUT_DIR / f"{inspection_id}.png"
+    )
+
+    # 업로드 이미지 저장
+    if not cv2.imwrite(
+        str(input_path),
+        image
+    ):
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to save input image."
+        )
+
+    try:
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+
+        start = time.perf_counter()
+
+        result = run_inference(
+            input_path
+        )
+
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+
+        elapsed_ms = (
+            time.perf_counter() - start
+        ) * 1000
+
+        result_dir = (
+            RESULT_DIR / inspection_id
+        )
+
+        result_dir.mkdir(
+            parents=True,
+            exist_ok=True
+        )
+
+        cv2.imwrite(
+            str(result_dir / "heatmap.png"),
+            result["heatmap"]
+        )
+
+        cv2.imwrite(
+            str(result_dir / "overlay.png"),
+            result["overlay"]
+        )
+
+        cv2.imwrite(
+            str(result_dir / "result.png"),
+            result["resultImage"]
+        )
+
+        response = {
+            "inspectionId": inspection_id,
+            "result": result["result"],
+            "anomalyScore": result["anomalyScore"],
+            "imageThreshold": result["imageThreshold"],
+            "pixelThreshold": result["pixelThreshold"],
+            "processingTimeMs": round(
+                elapsed_ms, 2
+            ),
+            "defectCount": result["defectCount"],
+            "defects": result["defects"],
+            "outputs": {
+                "heatmap": (
+                    f"/results/{inspection_id}/heatmap.png"
+                ),
+                "overlay": (
+                    f"/results/{inspection_id}/overlay.png"
+                ),
+                "result": (
+                    f"/results/{inspection_id}/result.png"
+                )
+            }
+        }
+
+        return response
+
+    except Exception as error:
+        print("Inspection Error:", error)
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(error)
+        )
+
+    finally:
+        # 입력 파일 삭제
+        if input_path.exists():
+            input_path.unlink()

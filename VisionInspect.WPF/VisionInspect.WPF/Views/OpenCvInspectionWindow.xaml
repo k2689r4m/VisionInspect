@@ -1,0 +1,594 @@
+<Window x:Class="VisionInspect.WPF.Views.OpenCvInspectionWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="VisionInspect - OpenCV"
+        Width="1450"
+        Height="900"
+        MinWidth="900"
+        MinHeight="650"
+        WindowStartupLocation="CenterOwner"
+        WindowState="Maximized"
+        SizeToContent="Manual"
+        Background="#10151E"
+        Foreground="#E5EAF2"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True">
+
+	<Window.Resources>
+
+		<!-- ================= BUTTON ================= -->
+
+		<Style x:Key="ActionButtonStyle"
+               TargetType="Button">
+
+			<Setter Property="Background" Value="#2563EB"/>
+			<Setter Property="Foreground" Value="White"/>
+			<Setter Property="BorderThickness" Value="0"/>
+			<Setter Property="Padding" Value="18,9"/>
+			<Setter Property="FontWeight" Value="SemiBold"/>
+			<Setter Property="Cursor" Value="Hand"/>
+			<Setter Property="MinHeight" Value="34"/>
+
+		</Style>
+
+		<!-- ================= PANEL ================= -->
+
+		<Style x:Key="ImagePanelStyle"
+               TargetType="Border">
+
+			<Setter Property="Background" Value="#192330"/>
+			<Setter Property="CornerRadius" Value="8"/>
+			<Setter Property="Padding" Value="12"/>
+			<Setter Property="ClipToBounds" Value="True"/>
+
+		</Style>
+
+		<!-- ================= TITLE ================= -->
+
+		<Style x:Key="PanelTitleStyle"
+               TargetType="TextBlock">
+
+			<Setter Property="FontSize" Value="13"/>
+			<Setter Property="FontWeight" Value="SemiBold"/>
+			<Setter Property="Foreground" Value="#CBD5E1"/>
+			<Setter Property="Margin" Value="0,0,0,10"/>
+
+		</Style>
+
+		<!-- ================= IMAGE ================= -->
+
+		<Style x:Key="ImageStyle"
+               TargetType="Image">
+
+			<Setter Property="Stretch" Value="Uniform"/>
+			<Setter Property="HorizontalAlignment" Value="Stretch"/>
+			<Setter Property="VerticalAlignment" Value="Stretch"/>
+
+			<Setter Property="RenderOptions.BitmapScalingMode"
+                    Value="HighQuality"/>
+
+		</Style>
+
+		<!-- ================= IMAGE VIEWPORT ================= -->
+
+		<Style x:Key="ImageViewportStyle"
+               TargetType="ScrollViewer">
+
+			<Setter Property="HorizontalScrollBarVisibility"
+                    Value="Disabled"/>
+
+			<Setter Property="VerticalScrollBarVisibility"
+                    Value="Disabled"/>
+
+			<Setter Property="CanContentScroll" Value="False"/>
+			<Setter Property="Background" Value="#111923"/>
+			<Setter Property="Focusable" Value="False"/>
+
+		</Style>
+
+		<!-- ================= DATA GRID ================= -->
+
+		<Style x:Key="DarkDataGridStyle"
+               TargetType="DataGrid">
+
+			<Setter Property="Background" Value="#192330"/>
+			<Setter Property="Foreground" Value="#E5EAF2"/>
+			<Setter Property="BorderThickness" Value="0"/>
+
+			<Setter Property="AutoGenerateColumns" Value="False"/>
+			<Setter Property="IsReadOnly" Value="True"/>
+			<Setter Property="CanUserAddRows" Value="False"/>
+			<Setter Property="CanUserDeleteRows" Value="False"/>
+			<Setter Property="CanUserResizeRows" Value="False"/>
+
+			<Setter Property="HeadersVisibility" Value="Column"/>
+			<Setter Property="GridLinesVisibility" Value="None"/>
+
+			<Setter Property="RowBackground" Value="#192330"/>
+
+			<Setter Property="AlternatingRowBackground"
+                    Value="#243244"/>
+
+			<Setter Property="AlternationCount" Value="2"/>
+
+			<Setter Property="RowHeight" Value="32"/>
+			<Setter Property="ColumnHeaderHeight" Value="36"/>
+
+			<Setter Property="HorizontalScrollBarVisibility"
+                    Value="Disabled"/>
+
+			<Setter Property="VerticalScrollBarVisibility"
+                    Value="Auto"/>
+
+		</Style>
+
+		<!-- ================= GRID HEADER ================= -->
+
+		<Style x:Key="DarkDataGridHeaderStyle"
+               TargetType="DataGridColumnHeader">
+
+			<Setter Property="Background" Value="#243244"/>
+			<Setter Property="Foreground" Value="#94A3B8"/>
+
+			<Setter Property="FontSize" Value="11"/>
+			<Setter Property="FontWeight" Value="SemiBold"/>
+
+			<Setter Property="Padding" Value="14,0"/>
+
+			<Setter Property="HorizontalContentAlignment"
+                    Value="Left"/>
+
+			<Setter Property="VerticalContentAlignment"
+                    Value="Center"/>
+
+			<Setter Property="BorderBrush" Value="#334155"/>
+			<Setter Property="BorderThickness" Value="0,0,1,1"/>
+
+		</Style>
+
+		<!-- ================= GRID ROW ================= -->
+
+		<Style x:Key="DarkDataGridRowStyle"
+               TargetType="DataGridRow">
+
+			<Setter Property="Foreground" Value="#E5EAF2"/>
+			<Setter Property="BorderThickness" Value="0"/>
+
+			<Style.Triggers>
+
+				<Trigger Property="IsMouseOver" Value="True">
+
+					<Setter Property="Background"
+                            Value="#304158"/>
+
+				</Trigger>
+
+				<Trigger Property="IsSelected" Value="True">
+
+					<Setter Property="Background"
+                            Value="#1D4E70"/>
+
+					<Setter Property="Foreground"
+                            Value="White"/>
+
+				</Trigger>
+
+			</Style.Triggers>
+
+		</Style>
+
+		<!-- ================= GRID CELL ================= -->
+
+		<Style x:Key="DarkDataGridCellStyle"
+               TargetType="DataGridCell">
+
+			<Setter Property="Foreground"
+                    Value="{Binding Foreground,
+                            RelativeSource={RelativeSource AncestorType=DataGridRow}}"/>
+
+			<Setter Property="Background" Value="Transparent"/>
+			<Setter Property="BorderThickness" Value="0"/>
+			<Setter Property="Padding" Value="14,0"/>
+
+			<Setter Property="VerticalContentAlignment"
+                    Value="Center"/>
+
+			<Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+
+			<Style.Triggers>
+
+				<Trigger Property="IsSelected" Value="True">
+
+					<Setter Property="Background"
+                            Value="Transparent"/>
+
+				</Trigger>
+
+			</Style.Triggers>
+
+		</Style>
+
+	</Window.Resources>
+
+	<!-- ================= ROOT ================= -->
+
+	<Grid Margin="16"
+          ClipToBounds="True">
+
+		<Grid.RowDefinitions>
+
+			<RowDefinition Height="55"/>
+			<RowDefinition Height="75"/>
+			<RowDefinition Height="*"/>
+			<RowDefinition Height="210"/>
+			<RowDefinition Height="28"/>
+
+		</Grid.RowDefinitions>
+
+		<!-- ================= HEADER ================= -->
+
+		<Grid Grid.Row="0"
+              ClipToBounds="True">
+
+			<Grid.ColumnDefinitions>
+
+				<ColumnDefinition Width="*"/>
+				<ColumnDefinition Width="Auto"/>
+				<ColumnDefinition Width="Auto"/>
+
+			</Grid.ColumnDefinitions>
+
+			<StackPanel Grid.Column="0"
+                        VerticalAlignment="Center">
+
+				<TextBlock Text="OPENCV INSPECTION"
+                           FontSize="22"
+                           FontWeight="Bold"/>
+
+				<TextBlock Text="CLASSICAL COMPUTER VISION"
+                           Foreground="#94A3B8"
+                           FontSize="11"/>
+
+			</StackPanel>
+
+			<Button Grid.Column="1"
+                    Content="OPEN IMAGE"
+                    Command="{Binding OpenImageCommand}"
+                    Style="{StaticResource ActionButtonStyle}"
+                    Margin="0,0,10,0"
+                    VerticalAlignment="Center"/>
+
+			<Button Grid.Column="2"
+                    Content="BACK"
+                    Click="Back_Click"
+                    Style="{StaticResource ActionButtonStyle}"
+                    Background="#334155"
+                    VerticalAlignment="Center"/>
+
+		</Grid>
+
+		<!-- ================= SUMMARY ================= -->
+
+		<Border Grid.Row="1"
+                Background="#192330"
+                CornerRadius="8"
+                Padding="14"
+                Margin="0,0,0,10"
+                ClipToBounds="True">
+
+			<Grid VerticalAlignment="Center">
+
+				<Grid.ColumnDefinitions>
+
+					<ColumnDefinition Width="2*"/>
+					<ColumnDefinition Width="1*"/>
+					<ColumnDefinition Width="1*"/>
+					<ColumnDefinition Width="1*"/>
+
+				</Grid.ColumnDefinitions>
+
+				<!-- IMAGE -->
+
+				<StackPanel Grid.Column="0">
+
+					<TextBlock Text="IMAGE"
+                               Foreground="#94A3B8"
+                               FontSize="11"/>
+
+					<TextBlock Text="{Binding ImageName}"
+                               TextTrimming="CharacterEllipsis"
+                               Margin="0,5,10,0"/>
+
+				</StackPanel>
+
+				<!-- RESOLUTION -->
+
+				<StackPanel Grid.Column="1">
+
+					<TextBlock Text="RESOLUTION"
+                               Foreground="#94A3B8"
+                               FontSize="11"/>
+
+					<TextBlock Text="{Binding ImageSize}"
+                               Margin="0,5,0,0"/>
+
+				</StackPanel>
+
+				<!-- TIME -->
+
+				<StackPanel Grid.Column="2">
+
+					<TextBlock Text="CV PROCESSING TIME"
+                               Foreground="#94A3B8"
+                               FontSize="11"/>
+
+					<TextBlock Text="{Binding ProcessingTime}"
+                               Foreground="#38BDF8"
+                               FontWeight="SemiBold"
+                               Margin="0,5,0,0"/>
+
+				</StackPanel>
+
+				<!-- REGIONS -->
+
+				<StackPanel Grid.Column="3">
+
+					<TextBlock Text="CONTOUR REGIONS"
+                               Foreground="#94A3B8"
+                               FontSize="11"/>
+
+					<TextBlock Text="{Binding RegionCount}"
+                               Foreground="#34D399"
+                               FontWeight="SemiBold"
+                               Margin="0,5,0,0"/>
+
+				</StackPanel>
+
+			</Grid>
+
+		</Border>
+
+		<!-- ================= IMAGE GRID ================= -->
+
+		<Grid Grid.Row="2"
+              Margin="0,0,0,10"
+              ClipToBounds="True">
+
+			<Grid.RowDefinitions>
+
+				<RowDefinition Height="*"/>
+				<RowDefinition Height="*"/>
+
+			</Grid.RowDefinitions>
+
+			<Grid.ColumnDefinitions>
+
+				<ColumnDefinition Width="*"/>
+				<ColumnDefinition Width="*"/>
+				<ColumnDefinition Width="*"/>
+
+			</Grid.ColumnDefinitions>
+
+			<!-- ================= ORIGINAL ================= -->
+
+			<Border Grid.Row="0"
+                    Grid.Column="0"
+                    Style="{StaticResource ImagePanelStyle}"
+                    Margin="0,0,8,8">
+
+				<Grid ClipToBounds="True">
+
+					<Grid.RowDefinitions>
+						<RowDefinition Height="Auto"/>
+						<RowDefinition Height="*"/>
+					</Grid.RowDefinitions>
+
+					<TextBlock Grid.Row="0"
+                               Text="ORIGINAL"
+                               Style="{StaticResource PanelTitleStyle}"/>
+
+					<ScrollViewer Grid.Row="1"
+                                  Style="{StaticResource ImageViewportStyle}">
+
+						<Image Source="{Binding OriginalImage}"
+                               Style="{StaticResource ImageStyle}"/>
+
+					</ScrollViewer>
+
+				</Grid>
+
+			</Border>
+
+			<!-- ================= GRAYSCALE ================= -->
+
+			<Border Grid.Row="0"
+                    Grid.Column="1"
+                    Style="{StaticResource ImagePanelStyle}"
+                    Margin="0,0,8,8">
+
+				<Grid ClipToBounds="True">
+
+					<Grid.RowDefinitions>
+						<RowDefinition Height="Auto"/>
+						<RowDefinition Height="*"/>
+					</Grid.RowDefinitions>
+
+					<TextBlock Grid.Row="0"
+                               Text="GRAYSCALE"
+                               Style="{StaticResource PanelTitleStyle}"/>
+
+					<ScrollViewer Grid.Row="1"
+                                  Style="{StaticResource ImageViewportStyle}">
+
+						<Image Source="{Binding GrayscaleImage}"
+                               Style="{StaticResource ImageStyle}"/>
+
+					</ScrollViewer>
+
+				</Grid>
+
+			</Border>
+
+			<!-- ================= BINARY ================= -->
+
+			<Border Grid.Row="0"
+                    Grid.Column="2"
+                    Style="{StaticResource ImagePanelStyle}"
+                    Margin="0,0,0,8">
+
+				<Grid ClipToBounds="True">
+
+					<Grid.RowDefinitions>
+						<RowDefinition Height="Auto"/>
+						<RowDefinition Height="*"/>
+					</Grid.RowDefinitions>
+
+					<TextBlock Grid.Row="0"
+                               Text="BINARY / OTSU"
+                               Style="{StaticResource PanelTitleStyle}"/>
+
+					<ScrollViewer Grid.Row="1"
+                                  Style="{StaticResource ImageViewportStyle}">
+
+						<Image Source="{Binding BinaryImage}"
+                               Style="{StaticResource ImageStyle}"/>
+
+					</ScrollViewer>
+
+				</Grid>
+
+			</Border>
+
+			<!-- ================= EDGES ================= -->
+
+			<Border Grid.Row="1"
+                    Grid.Column="0"
+                    Style="{StaticResource ImagePanelStyle}"
+                    Margin="0,0,8,0">
+
+				<Grid ClipToBounds="True">
+
+					<Grid.RowDefinitions>
+						<RowDefinition Height="Auto"/>
+						<RowDefinition Height="*"/>
+					</Grid.RowDefinitions>
+
+					<TextBlock Grid.Row="0"
+                               Text="CANNY EDGES"
+                               Style="{StaticResource PanelTitleStyle}"/>
+
+					<ScrollViewer Grid.Row="1"
+                                  Style="{StaticResource ImageViewportStyle}">
+
+						<Image Source="{Binding EdgesImage}"
+                               Style="{StaticResource ImageStyle}"/>
+
+					</ScrollViewer>
+
+				</Grid>
+
+			</Border>
+
+			<!-- ================= CONTOURS ================= -->
+
+			<Border Grid.Row="1"
+                    Grid.Column="1"
+                    Grid.ColumnSpan="2"
+                    Style="{StaticResource ImagePanelStyle}">
+
+				<Grid ClipToBounds="True">
+
+					<Grid.RowDefinitions>
+						<RowDefinition Height="Auto"/>
+						<RowDefinition Height="*"/>
+					</Grid.RowDefinitions>
+
+					<TextBlock Grid.Row="0"
+                               Text="CONTOUR DETECTION"
+                               Style="{StaticResource PanelTitleStyle}"/>
+
+					<ScrollViewer Grid.Row="1"
+                                  Style="{StaticResource ImageViewportStyle}">
+
+						<Image Source="{Binding ContoursImage}"
+                               Style="{StaticResource ImageStyle}"/>
+
+					</ScrollViewer>
+
+				</Grid>
+
+			</Border>
+
+		</Grid>
+
+		<!-- ================= REGION TABLE ================= -->
+
+		<Border Grid.Row="3"
+                Background="#192330"
+                CornerRadius="8"
+                Padding="12"
+                Margin="0,0,0,10"
+                ClipToBounds="True">
+
+			<Grid>
+
+				<Grid.RowDefinitions>
+
+					<RowDefinition Height="Auto"/>
+					<RowDefinition Height="*"/>
+
+				</Grid.RowDefinitions>
+
+				<TextBlock Grid.Row="0"
+                           Text="DETECTED CONTOUR REGIONS"
+                           Style="{StaticResource PanelTitleStyle}"/>
+
+				<DataGrid Grid.Row="1"
+                          ItemsSource="{Binding Regions}"
+                          Style="{StaticResource DarkDataGridStyle}"
+                          ColumnHeaderStyle="{StaticResource DarkDataGridHeaderStyle}"
+                          RowStyle="{StaticResource DarkDataGridRowStyle}"
+                          CellStyle="{StaticResource DarkDataGridCellStyle}">
+
+					<DataGrid.Columns>
+
+						<DataGridTextColumn Header="X"
+                                            Binding="{Binding X}"
+                                            Width="*"/>
+
+						<DataGridTextColumn Header="Y"
+                                            Binding="{Binding Y}"
+                                            Width="*"/>
+
+						<DataGridTextColumn Header="WIDTH"
+                                            Binding="{Binding Width}"
+                                            Width="*"/>
+
+						<DataGridTextColumn Header="HEIGHT"
+                                            Binding="{Binding Height}"
+                                            Width="*"/>
+
+						<DataGridTextColumn Header="AREA (PX²)"
+                                            Binding="{Binding Area, StringFormat=F2}"
+                                            Width="*"/>
+
+					</DataGrid.Columns>
+
+				</DataGrid>
+
+			</Grid>
+
+		</Border>
+
+		<!-- ================= STATUS ================= -->
+
+		<TextBlock Grid.Row="4"
+                   Text="{Binding StatusMessage}"
+                   Foreground="#94A3B8"
+                   FontSize="12"
+                   VerticalAlignment="Center"
+                   TextTrimming="CharacterEllipsis"/>
+
+	</Grid>
+
+</Window>

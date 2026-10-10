@@ -1,0 +1,585 @@
+<Window x:Class="VisionInspect.WPF.Views.ComparisonWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:VisionInspect.WPF.Controls"
+        Title="VisionInspect - Algorithm Comparison"
+        Width="1700"
+        Height="950"
+        MinWidth="1300"
+        MinHeight="750"
+        WindowStartupLocation="CenterScreen"
+        Background="#10151E"
+        Foreground="#E5EAF2">
+
+	<Window.Resources>
+
+		<!-- ===================================== -->
+		<!-- BUTTON STYLE -->
+		<!-- ===================================== -->
+
+		<Style x:Key="DefaultButtonStyle"
+               TargetType="Button">
+
+			<Setter Property="Background" Value="#263445"/>
+			<Setter Property="Foreground" Value="White"/>
+			<Setter Property="BorderThickness" Value="0"/>
+			<Setter Property="Padding" Value="14,8"/>
+			<Setter Property="Margin" Value="0,0,8,0"/>
+			<Setter Property="MinHeight" Value="36"/>
+			<Setter Property="VerticalAlignment" Value="Center"/>
+			<Setter Property="Cursor" Value="Hand"/>
+			<Setter Property="FontSize" Value="12"/>
+			<Setter Property="FontWeight" Value="SemiBold"/>
+
+			<Style.Triggers>
+
+				<Trigger Property="IsMouseOver"
+                         Value="True">
+					<Setter Property="Background"
+                            Value="#35506C"/>
+				</Trigger>
+
+				<Trigger Property="IsEnabled"
+                         Value="False">
+					<Setter Property="Opacity"
+                            Value="0.4"/>
+				</Trigger>
+
+			</Style.Triggers>
+
+		</Style>
+
+		<!-- PRIMARY BUTTON -->
+		<Style x:Key="PrimaryButtonStyle"
+               TargetType="Button"
+               BasedOn="{StaticResource DefaultButtonStyle}">
+
+			<Setter Property="Background" Value="#1675C5"/>
+
+		</Style>
+
+		<!-- PANEL -->
+		<Style x:Key="PanelStyle"
+               TargetType="Border">
+
+			<Setter Property="Background" Value="#192330"/>
+			<Setter Property="CornerRadius" Value="8"/>
+			<Setter Property="Padding" Value="16"/>
+
+		</Style>
+
+		<!-- CAPTION -->
+		<Style x:Key="CaptionStyle"
+               TargetType="TextBlock">
+
+			<Setter Property="Foreground" Value="#91A1B5"/>
+			<Setter Property="FontSize" Value="12"/>
+
+		</Style>
+
+	</Window.Resources>
+
+	<!-- ========================================= -->
+	<!-- MAIN LAYOUT -->
+	<!-- ========================================= -->
+
+	<Grid Margin="20">
+
+		<Grid.RowDefinitions>
+			<RowDefinition Height="64"/>
+			<RowDefinition Height="Auto"/>
+			<RowDefinition Height="*"/>
+			<RowDefinition Height="Auto"/>
+			<RowDefinition Height="40"/>
+		</Grid.RowDefinitions>
+
+		<!-- ===================================== -->
+		<!-- HEADER -->
+		<!-- ===================================== -->
+
+		<Grid Grid.Row="0">
+
+			<Grid.ColumnDefinitions>
+				<ColumnDefinition Width="*"/>
+				<ColumnDefinition Width="Auto"/>
+			</Grid.ColumnDefinitions>
+
+			<!-- LOGO -->
+			<StackPanel Grid.Column="0"
+                        Orientation="Horizontal"
+                        VerticalAlignment="Center">
+
+				<TextBlock Text="VISION"
+                           FontSize="25"
+                           FontWeight="Bold"
+                           Foreground="#58B9FF"/>
+
+				<TextBlock Text="INSPECT"
+                           FontSize="25"
+                           FontWeight="Bold"/>
+
+				<TextBlock Text="  / ALGORITHM COMPARISON"
+                           FontSize="12"
+                           Foreground="#91A1B5"
+                           VerticalAlignment="Bottom"
+                           Margin="0,0,0,5"/>
+
+			</StackPanel>
+
+			<!-- HEADER ACTIONS -->
+			<StackPanel Grid.Column="1"
+                        Orientation="Horizontal"
+                        VerticalAlignment="Center">
+
+				<TextBlock Text="PATCHCORE / PADIM / EFFICIENTAD"
+                           Foreground="#91A1B5"
+                           VerticalAlignment="Center"
+                           Margin="0,0,20,0"/>
+
+                <Button Content="OPENCV"
+						Click="OpenCv_Click"
+						Margin="0,0,10,0"/>
+                
+				<Button Content="BENCHMARK"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        Margin="0"
+                        Click="Benchmark_Click"/>
+
+			</StackPanel>
+
+		</Grid>
+
+		<!-- ===================================== -->
+		<!-- IMAGE SELECTION -->
+		<!-- ===================================== -->
+
+		<Border Grid.Row="1"
+                Style="{StaticResource PanelStyle}"
+                Margin="0,0,0,12">
+
+			<Grid MinHeight="40">
+
+				<Grid.ColumnDefinitions>
+					<ColumnDefinition Width="*"/>
+					<ColumnDefinition Width="Auto"/>
+				</Grid.ColumnDefinitions>
+
+				<!-- SELECTED FILE -->
+				<StackPanel Grid.Column="0"
+                            VerticalAlignment="Center"
+                            Margin="0,0,16,0">
+
+					<TextBlock Text="SELECTED IMAGE"
+                               Style="{StaticResource CaptionStyle}"
+                               Margin="0,0,0,5"/>
+
+					<TextBlock Text="{Binding SelectedImagePath}"
+                               FontSize="12"
+                               Foreground="#E5EAF2"
+                               TextTrimming="CharacterEllipsis"/>
+
+				</StackPanel>
+
+				<!-- ACTION BUTTONS -->
+				<StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center">
+
+					<Button Content="OPEN IMAGE"
+                            Style="{StaticResource DefaultButtonStyle}"
+                            Command="{Binding OpenImageCommand}"/>
+
+					<Button Content="COMPARE MODELS"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            Command="{Binding RunComparisonCommand}"
+                            Margin="0"/>
+
+				</StackPanel>
+
+			</Grid>
+
+		</Border>
+
+		<!-- ===================================== -->
+		<!-- THREE ALGORITHM VIEWERS -->
+		<!-- ===================================== -->
+
+		<Grid Grid.Row="2">
+
+			<Grid.ColumnDefinitions>
+				<ColumnDefinition Width="*"/>
+				<ColumnDefinition Width="12"/>
+				<ColumnDefinition Width="*"/>
+				<ColumnDefinition Width="12"/>
+				<ColumnDefinition Width="*"/>
+			</Grid.ColumnDefinitions>
+
+			<!-- ================================= -->
+			<!-- PATCHCORE -->
+			<!-- ================================= -->
+
+			<Border Grid.Column="0"
+                    Style="{StaticResource PanelStyle}">
+
+				<Grid>
+
+					<Grid.RowDefinitions>
+						<RowDefinition Height="42"/>
+						<RowDefinition Height="*"/>
+						<RowDefinition Height="Auto"/>
+					</Grid.RowDefinitions>
+
+					<!-- TITLE -->
+					<TextBlock Grid.Row="0"
+                               Text="PATCHCORE"
+                               FontSize="18"
+                               FontWeight="Bold"
+                               Foreground="#58B9FF"/>
+
+					<!-- IMAGE VIEWER -->
+					<Border Grid.Row="1"
+                            Background="#0B1017"
+                            CornerRadius="6"
+                            ClipToBounds="True">
+
+						<controls:InspectionViewer
+                            x:Name="PatchCoreViewer"
+                            ImageSource="{Binding PatchCore.DisplayedImage}"
+                            Defects="{Binding PatchCore.Defects}"
+                            ShowDefects="{Binding ShowDefects}"/>
+
+					</Border>
+
+					<!-- RESULTS -->
+					<Grid Grid.Row="2"
+                          Margin="0,14,0,0">
+
+						<Grid.RowDefinitions>
+							<RowDefinition Height="Auto"/>
+							<RowDefinition Height="Auto"/>
+							<RowDefinition Height="Auto"/>
+							<RowDefinition Height="Auto"/>
+						</Grid.RowDefinitions>
+
+						<Grid.ColumnDefinitions>
+							<ColumnDefinition Width="*"/>
+							<ColumnDefinition Width="Auto"/>
+						</Grid.ColumnDefinitions>
+
+						<TextBlock Grid.Row="0"
+                                   Grid.Column="0"
+                                   Text="{Binding PatchCore.Result}"
+                                   Foreground="{Binding PatchCore.ResultBrush}"
+                                   FontSize="24"
+                                   FontWeight="Bold"/>
+
+						<TextBlock Grid.Row="0"
+                                   Grid.Column="1"
+                                   Text="{Binding PatchCore.ProcessingTimeMs,
+                                          StringFormat={}{0:F2} ms}"
+                                   FontSize="16"
+                                   FontWeight="Bold"
+                                   VerticalAlignment="Center"/>
+
+						<TextBlock Grid.Row="1"
+                                   Grid.Column="0"
+                                   Text="{Binding PatchCore.AnomalyScore,
+                                          StringFormat=Score: {0:F6}}"
+                                   Margin="0,8,0,0"/>
+
+						<TextBlock Grid.Row="1"
+                                   Grid.Column="1"
+                                   Text="{Binding PatchCore.DefectCount,
+                                          StringFormat=Defects: {0}}"
+                                   Foreground="#91A1B5"
+                                   Margin="0,8,0,0"/>
+
+						<TextBlock Grid.Row="2"
+                                   Grid.ColumnSpan="2"
+                                   Text="{Binding PatchCore.ThresholdText}"
+                                   Foreground="#91A1B5"
+                                   Margin="0,5,0,0"/>
+
+					</Grid>
+
+				</Grid>
+
+			</Border>
+
+			<!-- ================================= -->
+			<!-- PADIM -->
+			<!-- ================================= -->
+
+			<Border Grid.Column="2"
+                    Style="{StaticResource PanelStyle}">
+
+				<Grid>
+
+					<Grid.RowDefinitions>
+						<RowDefinition Height="42"/>
+						<RowDefinition Height="*"/>
+						<RowDefinition Height="Auto"/>
+					</Grid.RowDefinitions>
+
+					<!-- TITLE -->
+					<TextBlock Grid.Row="0"
+                               Text="PADIM"
+                               FontSize="18"
+                               FontWeight="Bold"
+                               Foreground="#58B9FF"/>
+
+					<!-- IMAGE VIEWER -->
+					<Border Grid.Row="1"
+                            Background="#0B1017"
+                            CornerRadius="6"
+                            ClipToBounds="True">
+
+						<controls:InspectionViewer
+                            x:Name="PaDimViewer"
+                            ImageSource="{Binding PaDim.DisplayedImage}"
+                            Defects="{Binding PaDim.Defects}"
+                            ShowDefects="{Binding ShowDefects}"/>
+
+					</Border>
+
+					<!-- RESULTS -->
+					<Grid Grid.Row="2"
+                          Margin="0,14,0,0">
+
+						<Grid.RowDefinitions>
+							<RowDefinition Height="Auto"/>
+							<RowDefinition Height="Auto"/>
+							<RowDefinition Height="Auto"/>
+							<RowDefinition Height="Auto"/>
+						</Grid.RowDefinitions>
+
+						<Grid.ColumnDefinitions>
+							<ColumnDefinition Width="*"/>
+							<ColumnDefinition Width="Auto"/>
+						</Grid.ColumnDefinitions>
+
+						<TextBlock Grid.Row="0"
+                                   Grid.Column="0"
+                                   Text="{Binding PaDim.Result}"
+                                   Foreground="{Binding PaDim.ResultBrush}"
+                                   FontSize="24"
+                                   FontWeight="Bold"/>
+
+						<TextBlock Grid.Row="0"
+                                   Grid.Column="1"
+                                   Text="{Binding PaDim.ProcessingTimeMs,
+                                          StringFormat={}{0:F2} ms}"
+                                   FontSize="16"
+                                   FontWeight="Bold"
+                                   VerticalAlignment="Center"/>
+
+						<TextBlock Grid.Row="1"
+                                   Grid.Column="0"
+                                   Text="{Binding PaDim.AnomalyScore,
+                                          StringFormat=Score: {0:F6}}"
+                                   Margin="0,8,0,0"/>
+
+						<TextBlock Grid.Row="1"
+                                   Grid.Column="1"
+                                   Text="{Binding PaDim.DefectCount,
+                                          StringFormat=Defects: {0}}"
+                                   Foreground="#91A1B5"
+                                   Margin="0,8,0,0"/>
+
+						<TextBlock Grid.Row="2"
+                                   Grid.ColumnSpan="2"
+                                   Text="{Binding PaDim.ThresholdText}"
+                                   Foreground="#91A1B5"
+                                   Margin="0,5,0,0"/>
+
+					</Grid>
+
+				</Grid>
+
+			</Border>
+
+			<!-- ================================= -->
+			<!-- EFFICIENTAD -->
+			<!-- ================================= -->
+
+			<Border Grid.Column="4"
+                    Style="{StaticResource PanelStyle}">
+
+				<Grid>
+
+					<Grid.RowDefinitions>
+						<RowDefinition Height="42"/>
+						<RowDefinition Height="*"/>
+						<RowDefinition Height="Auto"/>
+					</Grid.RowDefinitions>
+
+					<!-- TITLE -->
+					<TextBlock Grid.Row="0"
+                               Text="EFFICIENTAD"
+                               FontSize="18"
+                               FontWeight="Bold"
+                               Foreground="#58B9FF"/>
+
+					<!-- IMAGE VIEWER -->
+					<Border Grid.Row="1"
+                            Background="#0B1017"
+                            CornerRadius="6"
+                            ClipToBounds="True">
+
+						<controls:InspectionViewer
+                            x:Name="EfficientADViewer"
+                            ImageSource="{Binding EfficientAD.DisplayedImage}"
+                            Defects="{Binding EfficientAD.Defects}"
+                            ShowDefects="{Binding ShowDefects}"/>
+
+					</Border>
+
+					<!-- RESULTS -->
+					<Grid Grid.Row="2"
+                          Margin="0,14,0,0">
+
+						<Grid.RowDefinitions>
+							<RowDefinition Height="Auto"/>
+							<RowDefinition Height="Auto"/>
+							<RowDefinition Height="Auto"/>
+							<RowDefinition Height="Auto"/>
+						</Grid.RowDefinitions>
+
+						<Grid.ColumnDefinitions>
+							<ColumnDefinition Width="*"/>
+							<ColumnDefinition Width="Auto"/>
+						</Grid.ColumnDefinitions>
+
+						<TextBlock Grid.Row="0"
+                                   Grid.Column="0"
+                                   Text="{Binding EfficientAD.Result}"
+                                   Foreground="{Binding EfficientAD.ResultBrush}"
+                                   FontSize="24"
+                                   FontWeight="Bold"/>
+
+						<TextBlock Grid.Row="0"
+                                   Grid.Column="1"
+                                   Text="{Binding EfficientAD.ProcessingTimeMs,
+                                          StringFormat={}{0:F2} ms}"
+                                   FontSize="16"
+                                   FontWeight="Bold"
+                                   VerticalAlignment="Center"/>
+
+						<TextBlock Grid.Row="1"
+                                   Grid.Column="0"
+                                   Text="{Binding EfficientAD.AnomalyScore,
+                                          StringFormat=Score: {0:F6}}"
+                                   Margin="0,8,0,0"/>
+
+						<TextBlock Grid.Row="1"
+                                   Grid.Column="1"
+                                   Text="{Binding EfficientAD.DefectCount,
+                                          StringFormat=Defects: {0}}"
+                                   Foreground="#91A1B5"
+                                   Margin="0,8,0,0"/>
+
+						<TextBlock Grid.Row="2"
+                                   Grid.ColumnSpan="2"
+                                   Text="{Binding EfficientAD.ThresholdText}"
+                                   Foreground="#91A1B5"
+                                   Margin="0,5,0,0"/>
+
+					</Grid>
+
+				</Grid>
+
+			</Border>
+
+		</Grid>
+
+		<!-- ===================================== -->
+		<!-- VIEW TOOLBAR -->
+		<!-- ===================================== -->
+
+		<Border Grid.Row="3"
+                Style="{StaticResource PanelStyle}"
+                Margin="0,12,0,0">
+
+			<Grid MinHeight="40">
+
+				<Grid.ColumnDefinitions>
+					<ColumnDefinition Width="*"/>
+					<ColumnDefinition Width="Auto"/>
+				</Grid.ColumnDefinitions>
+
+				<!-- VIEW MODES -->
+				<StackPanel Grid.Column="0"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center">
+
+					<Button Content="ORIGINAL"
+                            Style="{StaticResource DefaultButtonStyle}"
+                            Command="{Binding ChangeViewCommand}"
+                            CommandParameter="Original"/>
+
+					<Button Content="HEATMAP"
+                            Style="{StaticResource DefaultButtonStyle}"
+                            Command="{Binding ChangeViewCommand}"
+                            CommandParameter="Heatmap"/>
+
+					<Button Content="OVERLAY"
+                            Style="{StaticResource DefaultButtonStyle}"
+                            Command="{Binding ChangeViewCommand}"
+                            CommandParameter="Overlay"/>
+
+					<Button Content="DEFECTS"
+                            Style="{StaticResource DefaultButtonStyle}"
+                            Command="{Binding ChangeViewCommand}"
+                            CommandParameter="Defects"/>
+
+				</StackPanel>
+
+				<!-- ZOOM ACTIONS -->
+				<StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center">
+
+					<Button Content="FIT ALL"
+                            Style="{StaticResource DefaultButtonStyle}"
+                            Click="FitAll_Click"/>
+
+					<Button Content="100% ALL"
+                            Style="{StaticResource DefaultButtonStyle}"
+                            Margin="0"
+                            Click="ActualSizeAll_Click"/>
+
+				</StackPanel>
+
+			</Grid>
+
+		</Border>
+
+		<!-- ===================================== -->
+		<!-- STATUS BAR -->
+		<!-- ===================================== -->
+
+		<Grid Grid.Row="4">
+
+			<Grid.ColumnDefinitions>
+				<ColumnDefinition Width="*"/>
+				<ColumnDefinition Width="Auto"/>
+			</Grid.ColumnDefinitions>
+
+			<TextBlock Grid.Column="0"
+                       Text="{Binding StatusMessage}"
+                       Foreground="#91A1B5"
+                       VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis"/>
+
+			<TextBlock Grid.Column="1"
+                       Text="{Binding SpeedDifferenceMs,
+                              StringFormat=Time Difference: {0:F2} ms}"
+                       Foreground="#91A1B5"
+                       VerticalAlignment="Center"
+                       Margin="15,0,0,0"/>
+
+		</Grid>
+
+	</Grid>
+
+</Window>

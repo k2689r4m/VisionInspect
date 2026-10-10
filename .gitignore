@@ -1,0 +1,37 @@
+# Visual Studio / .NET
+.vs/
+**/bin/
+**/obj/
+*.user
+*.suo
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# AI datasets and checkpoints
+datasets/
+data/
+*.ckpt
+*.pth
+*.pt
+*.onnx
+*.engine
+
+# Generated outputs
+outputs/
+results/
+lightning_logs/
+wandb/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# OS
+Thumbs.db
+.DS_Store
