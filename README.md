@@ -4,7 +4,7 @@ C# WPF 기반 산업용 머신비전 검사 및 AI 이상 탐지 모델 비교 �
 
 ## 기술 스택
 
-- **Desktop:** C#, WPF, XAML, MVVM, CommunityToolkit.Mvvm
+- **Desktop:** C#, WPF, XAML, MVVM
 - **Computer Vision:** OpenCvSharp / OpenCV
 - **AI 서버:** Python, FastAPI, PyTorch, anomalib, OpenCV, NumPy, Pillow
 - **AI 이상 탐지 모델:** PatchCore, PaDiM, EfficientAD
