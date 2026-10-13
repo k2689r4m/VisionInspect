@@ -6,7 +6,8 @@ C# WPF 기반 산업용 머신비전 검사 및 AI 이상 탐지 모델 비교 �
 
 - **Desktop:** C#, WPF, XAML, MVVM, CommunityToolkit.Mvvm
 - **Computer Vision:** OpenCvSharp / OpenCV
-- **AI 이상 탐지 비교:** PatchCore, PaDiM, EfficientAD
+- **AI 서버:** Python, FastAPI, PyTorch, anomalib, OpenCV, NumPy, Pillow
+- **AI 이상 탐지 모델:** PatchCore, PaDiM, EfficientAD
 - **평가 데이터:** MVTec AD (화면에 표시된 테스트 기준)
 
 ## 시스템 아키텍처
@@ -15,19 +16,19 @@ VisionInspect는 **WPF 화면(View)과 검사 상태·명령(ViewModel), 영상�
 
 ```mermaid
 flowchart TD
-    A[WPF 사용자 화면] --> B{기능 선택}
-    B --> C[OpenCV 검사]
-    B --> D[AI 모델 비교]
-    B --> E[AI 벤치마크]
-    C --> F[ViewModel: 입력·설정·명령]
-    F --> G[InspectionEngine]
-    G --> H[IInspectionAlgorithm 구현체]
-    H --> I[Difference / Shape / Template / Dimension / Surface / Color / Feature]
-    I --> J[InspectionResult]
-    J --> F
-    F --> A
-    D --> K[PatchCore / PaDiM / EfficientAD 추론 및 결과 비교]
-    E --> L[데이터셋 평가·지표 집계·시각화]
+    UI[WPF Desktop / MVVM] --> MODE{검사 기능}
+    MODE --> CV[OpenCV InspectionEngine]
+    CV --> ALG[7개 OpenCvSharp 알고리즘]
+    ALG --> RESULT[InspectionResult / 화면 표시]
+    MODE --> AI[AI 검사 / 벤치마크 화면]
+    AI <-->|HTTP / JSON| API[Python FastAPI 서버]
+    API --> MODELS[PatchCore / PaDiM / EfficientAD]
+    MODELS --> MAP[이상 점수 / Anomaly Map]
+    MAP --> VIS[Heatmap / Overlay / Defect Box]
+    VIS --> API
+    SCRIPT[Python benchmark.py] --> EVAL[MVTec AD 평가]
+    EVAL --> REPORT[benchmark.json / benchmark.csv]
+    REPORT --> API
 ```
 
 ### OpenCV 모듈 구조
@@ -54,6 +55,59 @@ VisionInspect
             └── FeatureInspection            # ORB 특징점 매칭
 ```
 
+### Python AI 모듈 구조 (실제 GitHub 저장소 기준)
+
+```text
+VisionInspect.AI/
+├── api/
+│   └── api_server.py           # FastAPI: 모델 로딩, 이미지 추론, 결과 조회
+├── scripts/
+│   ├── train_patchcore.py      # PatchCore 학습 스크립트
+│   ├── train_padim.py          # PaDiM 학습 스크립트
+│   ├── train_efficientad.py    # EfficientAD 학습 스크립트
+│   └── benchmark.py            # MVTec AD 모델 성능 평가 및 리포트 생성
+├── gpu_test.py                 # CUDA/GPU 환경 확인
+├── requirements.txt           # Python 의존성 파일 (현재 저장소에서는 비어 있음)
+└── test.py                    # 테스트용 파일 (현재 저장소에서는 비어 있음)
+
+# 실행 중 생성/참조하는 경로 (저장소에 포함되지 않을 수 있음)
+# datasets/MVTecAD/           # 평가 데이터셋
+# outputs/.../model.ckpt       # 모델별 학습 체크포인트
+# outputs/benchmark/...        # 평가 결과 JSON / CSV
+# results/                     # 추론 입력 및 결과 이미지
+```
+
+#### AI 모델 학습 및 로딩
+
+`train_patchcore.py`, `train_padim.py`, `train_efficientad.py`는 모델별 학습을 위한 진입점입니다. API 서버는 `outputs/`에 저장된 각 모델의 Lightning 체크포인트(`model.ckpt`)를 로딩합니다. 서버 시작 시 `torch.cuda.is_available()`로 GPU 사용 가능 여부를 확인하고, 체크포인트가 존재하는 모델만 메모리에 로딩합니다. 현재 API의 체크포인트 경로는 **MVTec AD의 `transistor` 카테고리**를 기준으로 지정되어 있습니다.
+
+#### Python API 기반 AI 검사 처리 흐름
+
+1. WPF AI 검사 화면에서 검사 이미지와 모델을 선택합니다.
+2. Python FastAPI의 `POST /api/inspect?model=...`에 이미지를 업로드합니다.
+3. Pillow로 이미지를 RGB로 변환하고 임시 입력 이미지를 저장합니다.
+4. anomalib `Engine.predict()`를 통해 선택한 모델로 추론합니다. 동시 추론 충돌을 피하기 위해 잠금(`Lock`)을 사용합니다.
+5. `pred_score`, `pred_label`, 모델의 `image_threshold`를 확인하여 OK/NG를 판정합니다.
+6. `anomaly_map`을 원본 이미지 크기로 조정하고 OpenCV로 Heatmap, Overlay, 결함 Bounding Box 이미지를 생성합니다.
+7. JSON 응답으로 이상 점수, 판정, 추론 시간, 결함 목록, 결과 이미지 경로를 전달합니다. WPF는 이를 화면에 표시합니다.
+
+**주요 API**
+
+| 엔드포인트 | 기능 |
+|---|---|
+| `GET /api/health` | 서버 상태, 로딩된 모델, CPU/GPU 정보 조회 |
+| `POST /api/inspect?model=patchcore` | 이미지 업로드 및 선택 모델 추론 (`padim`, `efficientad` 지원) |
+| `GET /api/benchmark/latest` | 가장 최근 벤치마크 JSON 결과 조회 |
+| `GET /results/...` | 생성된 Heatmap, Overlay, 결함 표시 이미지 제공 |
+
+> **구현 구분:** 이미지의 최종 OK/NG는 모델의 예측 레이블 또는 모델 임계값으로 결정합니다. 결함 박스를 만드는 정규화된 Anomaly Map의 `0.55` 기준은 **시각화 전용**이며, 모델 판정 임계값과 다릅니다. 따라서 화면의 결함 박스 개수와 OK/NG가 반드시 일치하지는 않습니다.
+
+#### AI 벤치마크 처리 흐름
+
+`benchmark.py`는 `MVTecAD` 데이터 모듈과 anomalib `Engine.test()`를 사용해 모델별 평가를 실행합니다. 평가 과정에서 Image AUROC, Image F1, Pixel AUROC, Pixel F1 및 **모델별 전체 평가 소요 시간**을 수집합니다. 결과는 `outputs/benchmark/<카테고리_실행시각>/benchmark.json`과 `benchmark.csv`로 저장하고, FastAPI의 `/api/benchmark/latest`에서 최신 JSON을 제공합니다.
+
+**참고:** 평가 시간은 단일 이미지 추론 지연 시간이 아니라 모델 평가 실행 구간의 소요 시간입니다. 모델 가중치와 MVTec AD 데이터셋은 별도로 준비해야 합니다.
+
 ### 검사 실행 데이터 흐름
 
 1. **View:** 사용자가 알고리즘과 이미지를 선택하고 파라미터를 입력합니다.
@@ -69,7 +123,7 @@ VisionInspect
 - **설정 일원화:** `InspectionSettings`에 모드별 임계값과 측정 조건을 정의해 화면에서 조정합니다.
 - **결과 표준화:** `InspectionResult` 형식으로 검사 방식에 관계없이 동일한 결과 패널을 사용합니다.
 - **기준 이미지 선택적 사용:** Difference·Template·Feature는 기준 이미지를 활용하며 나머지 모드는 단일 이미지와 검사 규격으로 동작합니다.
-- **AI 평가 기능 분리:** AI 모델 비교 화면은 개별 이미지 추론 결과를, 벤치마크 화면은 데이터셋 기반 평가 지표를 보여줍니다. AI 모듈의 내부 클래스·디렉터리 구성은 이 설명에서 확정하지 않았습니다.
+- **AI 평가 기능 분리:** AI 모델 비교 화면은 개별 이미지 추론 결과를, 벤치마크 화면은 데이터셋 기반 평가 지표를 보여줍니다. Python 서버와 학습·벤치마크 스크립트는 별도 `VisionInspect.AI` 디렉터리로 분리했습니다.
 
 ## 주요 화면 및 구현 로직
 
@@ -138,5 +192,3 @@ BGR 이미지를 HSV로 변환한 후 Hue·Saturation·Value 범위를 InRange�
 `이미지 입력 → 알고리즘/파라미터 선택 → 전처리 → 특징 추출·결함 후보 검출 → 규격/임계값 판정 → 결과 시각화 및 지표 표시`
 
 기준 이미지는 Difference, Template, Feature 검사에서 필요하며, Shape·Dimension·Surface·Color 검사는 설정값을 기준으로 단일 이미지 검사가 가능합니다.
-
-> **참고:** 본 프로젝트는 알고리즘 구현 및 기능 검증을 위한 포트폴리오입니다. 검사 결과는 입력 이미지와 파라미터에 따라 달라지며, 실제 생산 환경에 적용하려면 촬영 조건 표준화, 보정 및 추가 검증이 필요합니다.
