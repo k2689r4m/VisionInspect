@@ -1,0 +1,31 @@
+<UserControl x:Class="VisionInspect.WPF.Controls.ZoomImageViewer"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="Transparent">
+    <Grid Background="#0D1520" ClipToBounds="True">
+        <Border x:Name="Viewport" Background="Transparent" ClipToBounds="True"
+                MouseWheel="Viewport_MouseWheel"
+                MouseLeftButtonDown="Viewport_MouseLeftButtonDown"
+                MouseLeftButtonUp="Viewport_MouseLeftButtonUp"
+                MouseMove="Viewport_MouseMove"
+                MouseLeave="Viewport_MouseLeave">
+            <Image x:Name="DisplayedImage" Source="{Binding ImageSource, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                   Stretch="Uniform" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                   RenderOptions.BitmapScalingMode="HighQuality" IsHitTestVisible="False">
+                <Image.RenderTransform>
+                    <TransformGroup>
+                        <ScaleTransform x:Name="ZoomTransform" ScaleX="1" ScaleY="1" />
+                        <TranslateTransform x:Name="PanTransform" X="0" Y="0" />
+                    </TransformGroup>
+                </Image.RenderTransform>
+            </Image>
+        </Border>
+        <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="8" Padding="6,3"
+                Background="#D91A2737" CornerRadius="4" IsHitTestVisible="False">
+            <TextBlock x:Name="ZoomLabel" Text="FIT" Foreground="#E2E8F0" FontSize="10" />
+        </Border>
+        <Button Content="FIT" HorizontalAlignment="Right" VerticalAlignment="Top"
+                Margin="7" Padding="7,3" Background="#25364B" Foreground="#E2E8F0"
+                BorderBrush="#40536A" FontSize="10" Click="Fit_Click" />
+    </Grid>
+</UserControl>
