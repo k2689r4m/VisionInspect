@@ -9,6 +9,68 @@ C# WPF 기반 산업용 머신비전 검사 및 AI 이상 탐지 모델 비교 �
 - **AI 이상 탐지 비교:** PatchCore, PaDiM, EfficientAD
 - **평가 데이터:** MVTec AD (화면에 표시된 테스트 기준)
 
+## 시스템 아키텍처
+
+VisionInspect는 **WPF 화면(View)과 검사 상태·명령(ViewModel), 영상처리 로직(Service/Algorithm)을 분리**한 데스크톱 애플리케이션입니다. OpenCV 검사와 AI 모델 비교·벤치마크는 별도 화면으로 제공됩니다.
+
+```mermaid
+flowchart TD
+    A[WPF 사용자 화면] --> B{기능 선택}
+    B --> C[OpenCV 검사]
+    B --> D[AI 모델 비교]
+    B --> E[AI 벤치마크]
+    C --> F[ViewModel: 입력·설정·명령]
+    F --> G[InspectionEngine]
+    G --> H[IInspectionAlgorithm 구현체]
+    H --> I[Difference / Shape / Template / Dimension / Surface / Color / Feature]
+    I --> J[InspectionResult]
+    J --> F
+    F --> A
+    D --> K[PatchCore / PaDiM / EfficientAD 추론 및 결과 비교]
+    E --> L[데이터셋 평가·지표 집계·시각화]
+```
+
+### OpenCV 모듈 구조
+
+아래는 **확인된 주요 클래스의 논리적 구성**입니다. 실제 저장소의 전체 디렉터리 트리를 그대로 복제한 것은 아닙니다.
+
+```text
+VisionInspect
+└── VisionInspect.WPF
+    ├── OpenCvInspectionWindow.xaml          # 검사 화면 및 데이터 바인딩
+    ├── OpenCvInspectionViewModel.cs         # 입력 이미지, 설정값, 검사 실행 명령
+    └── Services
+        └── OpenCv
+            ├── InspectionEngine             # 선택한 알고리즘 실행 및 결과 전달
+            ├── IInspectionAlgorithm         # 검사 알고리즘 공통 인터페이스
+            ├── InspectionSettings           # 알고리즘별 파라미터
+            ├── InspectionResult             # 상태, 점수, 시간, 이미지, 결함 정보
+            ├── DifferenceInspection         # 기준 이미지 차이 검출
+            ├── ShapeInspection              # 객체 윤곽·형상 분석
+            ├── TemplateInspection           # 템플릿 다중 매칭
+            ├── DimensionInspection          # 치수 및 회전 각도 측정
+            ├── SurfaceInspection            # 표면 이상 영역 검출
+            ├── ColorInspection              # HSV 색상 검사
+            └── FeatureInspection            # ORB 특징점 매칭
+```
+
+### 검사 실행 데이터 흐름
+
+1. **View:** 사용자가 알고리즘과 이미지를 선택하고 파라미터를 입력합니다.
+2. **ViewModel:** 입력값을 `InspectionSettings`로 구성하고 검사 실행을 요청합니다.
+3. **InspectionEngine:** 선택한 `InspectionMode`에 대응하는 알고리즘에 이미지와 설정을 전달합니다.
+4. **Algorithm:** OpenCvSharp로 전처리·검출·측정·판정을 수행합니다.
+5. **InspectionResult:** `OK/NG/ERROR`, 점수, 처리 시간, 원본·결과·처리 이미지, 결함 목록을 반환합니다.
+6. **ViewModel → View:** 결과를 바인딩하여 이미지, 판정 배지, 결함 좌표와 검사 지표를 갱신합니다.
+
+### 설계 포인트
+
+- **알고리즘 분리:** 7개 검사 방식이 공통 인터페이스를 구현하므로 화면 로직과 검사 로직의 결합을 줄였습니다.
+- **설정 일원화:** `InspectionSettings`에 모드별 임계값과 측정 조건을 정의해 화면에서 조정합니다.
+- **결과 표준화:** `InspectionResult` 형식으로 검사 방식에 관계없이 동일한 결과 패널을 사용합니다.
+- **기준 이미지 선택적 사용:** Difference·Template·Feature는 기준 이미지를 활용하며 나머지 모드는 단일 이미지와 검사 규격으로 동작합니다.
+- **AI 평가 기능 분리:** AI 모델 비교 화면은 개별 이미지 추론 결과를, 벤치마크 화면은 데이터셋 기반 평가 지표를 보여줍니다. AI 모듈의 내부 클래스·디렉터리 구성은 이 설명에서 확정하지 않았습니다.
+
 ## 주요 화면 및 구현 로직
 
 ### 01. AI 모델 비교
